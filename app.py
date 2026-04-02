@@ -10,10 +10,8 @@ from collections import defaultdict
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# rebuild vocab
-with open('dataset/input.txt', 'r') as f:
-    text = f.read()
-chars  = sorted(list(set(text)))
+# vocab hardcoded — extracted from training dataset, no file needed at runtime
+chars  = list('\n !"#$%&\'()*+,-./0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~')
 stoi   = {ch: i for i, ch in enumerate(chars)}
 itos   = {i: ch for i, ch in enumerate(chars)}
 encode = lambda s: [stoi[c] for c in s if c in stoi]
