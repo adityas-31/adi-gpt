@@ -15,7 +15,7 @@ jobs:
       - name: Setup Git LFS and migrate weights
         run: |
           git lfs install
-          git lfs migrate import --include="*.pt" --everything
+          git lfs migrate import --include="*.pt" --everything --yes
       - name: Push to HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
