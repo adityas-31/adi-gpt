@@ -4,6 +4,9 @@ from torch.nn import functional as F
 from flask import Flask, request, jsonify, render_template_string
 import json
 import os
+import threading
+import time
+from collections import defaultdict
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -207,6 +210,23 @@ print("All models loaded.\n")
 # ── flask app ─────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 8 * 1024  # 8KB max request body
+
+inference_lock = threading.Lock()
+
+# simple rate limiter — max 10 requests per IP per minute
+_rate_data = defaultdict(list)
+_rate_lock = threading.Lock()
+MAX_REQUESTS_PER_MINUTE = 10
+
+def is_rate_limited(ip):
+    now = time.time()
+    with _rate_lock:
+        _rate_data[ip] = [t for t in _rate_data[ip] if now - t < 60]
+        if len(_rate_data[ip]) >= MAX_REQUESTS_PER_MINUTE:
+            return True
+        _rate_data[ip].append(now)
+    return False
 
 HTML = """
 <!DOCTYPE html>
@@ -260,7 +280,7 @@ HTML = """
     </div>
     <div class="field">
       <label>Tokens</label>
-      <input type="number" id="tokens" value="200" min="10" max="1000">
+      <input type="number" id="tokens" value="200" min="10" max="500">
     </div>
     <button id="btn" onclick="generateAll()">Generate All</button>
   </div>
@@ -325,26 +345,40 @@ def index():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    data       = request.json
-    run_id     = data.get('run_id')
-    prompt     = data.get('prompt', '').strip()
-    max_tokens = min(int(data.get('max_tokens', 200)), 1000)
+    if is_rate_limited(request.remote_addr):
+        return jsonify({'error': 'too many requests — slow down'}), 429
 
+    data = request.get_json(silent=True)
+    if not data or not isinstance(data, dict):
+        return jsonify({'error': 'invalid request'}), 400
+
+    run_id = data.get('run_id', '')
     if run_id not in MODELS:
-        return jsonify({'error': 'model not found'})
+        return jsonify({'error': 'model not found'}), 400
+
+    prompt = str(data.get('prompt', '')).strip()
+    if len(prompt) > 500:
+        return jsonify({'error': 'prompt too long (max 500 chars)'}), 400
+
+    try:
+        max_tokens = int(data.get('max_tokens', 200))
+        max_tokens = max(10, min(max_tokens, 500))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'invalid max_tokens'}), 400
 
     model, _ = MODELS[run_id]
 
-    with torch.no_grad():
-        if prompt:
-            idx = torch.tensor(encode(prompt), dtype=torch.long, device=device).unsqueeze(0)
-        else:
-            idx = torch.zeros((1, 1), dtype=torch.long, device=device)
+    with inference_lock:
+        with torch.no_grad():
+            if prompt:
+                idx = torch.tensor(encode(prompt), dtype=torch.long, device=device).unsqueeze(0)
+            else:
+                idx = torch.zeros((1, 1), dtype=torch.long, device=device)
 
-        out    = model.generate(idx, max_new_tokens=max_tokens)
-        result = decode(out[0].tolist())
-        if prompt:
-            result = result[len(prompt):]
+            out    = model.generate(idx, max_new_tokens=max_tokens)
+            result = decode(out[0].tolist())
+            if prompt:
+                result = result[len(prompt):]
 
     return jsonify({'output': result})
 
