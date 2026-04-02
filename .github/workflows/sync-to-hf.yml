@@ -12,11 +12,10 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
-      - name: Setup Git LFS
+      - name: Setup Git LFS and migrate weights
         run: |
           git lfs install
-          git lfs track "*.pt"
-          git add .gitattributes
+          git lfs migrate import --include="*.pt" --everything
       - name: Push to HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
