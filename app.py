@@ -176,22 +176,27 @@ RUNS = {
     '20260329_011932': {
         'label': 'v1 — Attention only',
         'desc':  'Token + position embeddings, multi-head self attention, no feedforward.',
+        'what_to_notice': 'Output is often incoherent or loops back on itself. Attention can copy and reweight tokens, but without a feedforward layer there\'s no way to combine or transform that information — so the model mostly shuffles what it\'s seen.',
     },
     '20260403_012829': {
         'label': 'v2 — + FeedForward (1×)',
         'desc':  'Added a feedforward layer after attention (same width as embedding).',
+        'what_to_notice': 'Slightly more varied word choices. The feedforward layer adds a per-token transformation step, but at 1× width it\'s narrow — like adding one extra neuron layer with the same bottleneck size. A small but real improvement.',
     },
     '20260403_014431': {
         'label': 'v3 — + FeedForward (4×)',
         'desc':  'Expanded feedforward to 4× the embedding width, as in the original transformer.',
+        'what_to_notice': 'Noticeably more structure — words tend to cluster into metal-ish phrases. The 4× expansion (from the "Attention is All You Need" paper) gives the model room to learn richer feature combinations before projecting back down.',
     },
     '20260403_015121': {
         'label': 'v3b — same arch, different seed',
         'desc':  'Same architecture as v3, trained again (fixed seed — identical output).',
+        'what_to_notice': 'Compare this directly with v3. Output should be nearly identical — this shows that architecture drives quality, not lucky random initialization. If you see big differences, that\'s a signal of high variance (undertrained model).',
     },
     '20260403_022641': {
         'label': 'v4 — Blocks + LayerNorm + Residuals + Dropout',
         'desc':  'Full transformer blocks with residual connections, layer norm, 6 layers, larger model.',
+        'what_to_notice': 'The most coherent output. Residual connections let gradients flow cleanly through 6 stacked layers. Layer norm stabilizes each block\'s input distribution. Dropout reduces overfitting. This is the closest to a "real" GPT architecture.',
     },
 }
 
@@ -508,6 +513,104 @@ HTML = """
 
     .card.done .bar-fill { width: 100%; background: #1a4a1a; }
 
+    /* ── notice box on cards ── */
+    .card-notice {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-left: 2px solid var(--red-dim);
+      background: #0a0000;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.7rem;
+      color: #888;
+      line-height: 1.6;
+    }
+
+    .card-notice strong {
+      display: block;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--red-dim);
+      margin-bottom: 4px;
+    }
+
+    /* ── landing explainer ── */
+    .explainer {
+      width: 100%;
+      max-width: 640px;
+      margin-top: 28px;
+      border-top: 1px solid #111;
+      padding-top: 24px;
+    }
+
+    .explainer-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--red);
+      margin-bottom: 14px;
+    }
+
+    .explainer-body {
+      font-size: 0.78rem;
+      color: #777;
+      line-height: 1.75;
+      margin-bottom: 18px;
+    }
+
+    .explainer-body strong { color: #aaa; }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 0.73rem;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .step-num {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      color: var(--red-dim);
+      font-weight: 700;
+    }
+
+    .step b { color: #999; }
+
+    #landing.results-shown .explainer { display: none; }
+
+    /* ── results header bar ── */
+    .results-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .results-legend {
+      font-size: 0.68rem;
+      color: #444;
+      max-width: 560px;
+      line-height: 1.6;
+    }
+
     @media (max-width: 600px) {
       h1 { font-size: 1.5rem; }
       .grid { grid-template-columns: 1fr; }
@@ -546,10 +649,30 @@ HTML = """
 
       <p class="hint">Compares 5 transformer checkpoints — from attention-only to full GPT blocks</p>
     </div>
+
+    <div class="explainer">
+      <div class="explainer-title">What is this demo?</div>
+      <div class="explainer-body">
+        A real GPT was trained from scratch on <strong>heavy metal lyrics</strong>, rebuilt piece by piece — the same
+        way the original 2017 transformer paper introduced each component. Every checkpoint below is a
+        <strong>different version of the same model</strong>, with one more building block added. Same prompt, same
+        training data — you can see directly how each addition changes the output quality.
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div><b>Attention only</b> — the model can look at context but can't transform it. Outputs are often repetitive or incoherent.</div></div>
+        <div class="step"><div class="step-num">2</div><div><b>+ Feedforward (1×)</b> — adds a small transformation layer per token. First signs of real word patterns.</div></div>
+        <div class="step"><div class="step-num">3</div><div><b>+ Feedforward (4×)</b> — wider feedforward (as in the original paper). More structured, phrase-like output.</div></div>
+        <div class="step"><div class="step-num">4</div><div><b>Same arch, different seed</b> — proves architecture matters more than random init. Output should match v3.</div></div>
+        <div class="step"><div class="step-num">5</div><div><b>Full GPT blocks</b> — residuals, layer norm, dropout, 6 layers. The real thing. Closest to coherent lyrics.</div></div>
+      </div>
+    </div>
   </div>
 
   <div id="results-section">
-    <div class="results-label">5 model outputs — same prompt, different architectures</div>
+    <div class="results-header">
+      <div class="results-label">5 model outputs — same prompt, different architectures</div>
+      <div class="results-legend">Each card adds one component to the transformer. Read them left-to-right to see the output improve as the architecture grows.</div>
+    </div>
     <div class="grid" id="grid">
       {% for run_id, meta in runs.items() %}
       <div class="card" id="card-{{ run_id }}">
@@ -558,6 +681,12 @@ HTML = """
         <div class="card-cfg">{{ meta.cfg_str }}</div>
         <div class="output" id="out-{{ run_id }}">—</div>
         <div class="bar"><div class="bar-fill" id="bar-{{ run_id }}"></div></div>
+        {% if meta.what_to_notice %}
+        <div class="card-notice">
+          <strong>What to look for</strong>
+          {{ meta.what_to_notice }}
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -636,7 +765,7 @@ def index():
         if run_id in MODELS:
             _, cfg = MODELS[run_id]
             cfg_str = f"n_embd={cfg['n_embd']} · n_heads={cfg['n_heads']} · block_size={cfg['block_size']} · iters={cfg['max_iters']}"
-            runs_display[run_id] = {**meta, 'cfg_str': cfg_str}
+            runs_display[run_id] = {**meta, 'cfg_str': cfg_str, 'what_to_notice': meta.get('what_to_notice', '')}
     return render_template_string(HTML, runs=runs_display, run_ids=list(runs_display.keys()))
 
 
