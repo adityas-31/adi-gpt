@@ -230,88 +230,382 @@ HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-  <title>adi-gpt — model comparison</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metal-Lyrics-GPT</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0d0d0d; color: #ddd; font-family: monospace; padding: 40px 24px; }
-    h1   { font-size: 1.3rem; color: #fff; margin-bottom: 4px; }
-    .sub { font-size: 0.75rem; color: #555; margin-bottom: 36px; }
 
-    .controls { display: flex; gap: 16px; align-items: flex-end; margin-bottom: 32px; flex-wrap: wrap; }
-    .field label { display: block; font-size: 0.7rem; color: #666; margin-bottom: 5px; }
-    textarea, input[type=number] {
-      background: #161616; border: 1px solid #222; color: #ddd;
-      font-family: monospace; font-size: 0.85rem; padding: 10px 12px;
-      border-radius: 5px; outline: none;
+    :root {
+      --bg:      #000;
+      --surface: #0f0f0f;
+      --border:  #1a1a1a;
+      --red:     #cc0000;
+      --red-dim: #7a0000;
+      --white:   #fff;
+      --muted:   #555;
+      --text:    #ccc;
     }
-    textarea { width: 420px; height: 80px; resize: vertical; }
-    input[type=number] { width: 100px; }
-    button {
-      background: #fff; color: #000; border: none; padding: 10px 22px;
-      font-family: monospace; font-size: 0.85rem; border-radius: 5px;
-      cursor: pointer; white-space: nowrap;
-    }
-    button:disabled { background: #333; color: #666; cursor: not-allowed; }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
-    .card { background: #141414; border: 1px solid #1f1f1f; border-radius: 8px; padding: 20px; }
-    .card-header { margin-bottom: 12px; }
-    .card-label { font-size: 0.85rem; color: #fff; font-weight: bold; margin-bottom: 4px; }
-    .card-desc  { font-size: 0.7rem; color: #555; margin-bottom: 8px; line-height: 1.5; }
-    .card-cfg   { font-size: 0.65rem; color: #444; }
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── landing state ── */
+    #landing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      width: 100%;
+      padding: 40px 24px;
+      transition: all 0.4s ease;
+    }
+
+    #landing.results-shown {
+      flex: 0;
+      padding: 28px 24px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-area {
+      text-align: center;
+      margin-bottom: 36px;
+      transition: all 0.4s ease;
+    }
+
+    #landing.results-shown .logo-area {
+      margin-bottom: 16px;
+    }
+
+    .logo-icon {
+      font-size: 2.8rem;
+      line-height: 1;
+      margin-bottom: 12px;
+      display: block;
+      transition: all 0.4s ease;
+    }
+
+    #landing.results-shown .logo-icon {
+      font-size: 1.6rem;
+      margin-bottom: 6px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--white);
+      transition: font-size 0.4s ease;
+    }
+
+    #landing.results-shown h1 {
+      font-size: 1.2rem;
+    }
+
+    .tagline {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 6px;
+      transition: all 0.4s ease;
+    }
+
+    #landing.results-shown .tagline {
+      display: none;
+    }
+
+    /* ── input area ── */
+    .input-wrap {
+      width: 100%;
+      max-width: 640px;
+      position: relative;
+    }
+
+    .input-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+      background: var(--surface);
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      padding: 14px 16px;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    .input-box:focus-within {
+      border-color: var(--red);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--white);
+      font-family: inherit;
+      font-size: 1rem;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      min-height: 28px;
+      max-height: 160px;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    textarea::placeholder { color: var(--muted); }
+
+    .send-btn {
+      background: var(--red);
+      border: none;
+      border-radius: 8px;
+      color: var(--white);
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-left: 10px;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .send-btn:hover  { background: #e60000; }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { background: #2a2a2a; cursor: not-allowed; }
+    .send-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+    .options-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .options-row label { white-space: nowrap; }
+
+    .token-input {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--white);
+      font-family: inherit;
+      font-size: 0.8rem;
+      padding: 4px 8px;
+      width: 72px;
+      text-align: center;
+      outline: none;
+    }
+
+    .token-input:focus { border-color: var(--red); }
+
+    .hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 14px;
+      text-align: center;
+    }
+
+    #landing.results-shown .hint { display: none; }
+
+    /* ── results grid ── */
+    #results-section {
+      display: none;
+      width: 100%;
+      max-width: 1100px;
+      padding: 28px 24px 48px;
+    }
+
+    #results-section.visible { display: block; }
+
+    .results-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      transition: border-color 0.2s;
+    }
+
+    .card.loading { border-color: var(--red-dim); }
+    .card.done    { border-color: #1f1f1f; }
+
+    .card-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 3px;
+    }
+
+    .card-desc {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      line-height: 1.5;
+    }
+
+    .card-cfg {
+      font-size: 0.62rem;
+      color: #333;
+      margin-bottom: 12px;
+      font-family: monospace;
+    }
+
     .output {
-      background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 5px;
-      padding: 14px; white-space: pre-wrap; font-size: 0.8rem; line-height: 1.65;
-      min-height: 60px; color: #bbb; margin-top: 12px;
+      background: #060606;
+      border: 1px solid #111;
+      border-radius: 8px;
+      padding: 14px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 0.78rem;
+      line-height: 1.7;
+      min-height: 80px;
+      color: #bbb;
     }
-    .spinner { color: #444; font-size: 0.75rem; margin-top: 12px; }
+
+    .output.loading-text { color: var(--red-dim); }
+
+    .bar {
+      height: 2px;
+      width: 100%;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--red);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .card.done .bar-fill { width: 100%; background: #1a4a1a; }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.5rem; }
+      .grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <h1>adi-gpt</h1>
-  <p class="sub">each card is a checkpoint from the tutorial — same prompt, different architecture</p>
 
-  <div class="controls">
-    <div class="field">
-      <label>Prompt (leave empty for newline start)</label>
-      <textarea id="prompt" placeholder="To be or not to be..."></textarea>
+  <div id="landing">
+    <div class="logo-area">
+      <span class="logo-icon">🤘</span>
+      <h1>Metal-Lyrics-GPT</h1>
+      <p class="tagline">Type a metal lyric — 5 GPT versions will continue it</p>
     </div>
-    <div class="field">
-      <label>Tokens</label>
-      <input type="number" id="tokens" value="200" min="10" max="500">
+
+    <div class="input-wrap">
+      <div class="input-box">
+        <textarea
+          id="prompt"
+          rows="1"
+          placeholder="Enter a metal lyric or leave empty..."
+          onInput="autoResize(this)"
+          onKeyDown="handleKey(event)"
+        ></textarea>
+        <button class="send-btn" id="btn" onclick="generateAll()" title="Generate">
+          <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+
+      <div class="options-row">
+        <label for="tokens">Tokens:</label>
+        <input type="number" id="tokens" class="token-input" value="200" min="10" max="500">
+        <span style="color:#333">|</span>
+        <span>Press Enter or click ▶ to generate</span>
+      </div>
+
+      <p class="hint">Compares 5 transformer checkpoints — from attention-only to full GPT blocks</p>
     </div>
-    <button id="btn" onclick="generateAll()">Generate All</button>
   </div>
 
-  <div class="grid" id="grid">
-    {% for run_id, meta in runs.items() %}
-    <div class="card" id="card-{{ run_id }}">
-      <div class="card-header">
+  <div id="results-section">
+    <div class="results-label">5 model outputs — same prompt, different architectures</div>
+    <div class="grid" id="grid">
+      {% for run_id, meta in runs.items() %}
+      <div class="card" id="card-{{ run_id }}">
         <div class="card-label">{{ meta.label }}</div>
         <div class="card-desc">{{ meta.desc }}</div>
         <div class="card-cfg">{{ meta.cfg_str }}</div>
+        <div class="output" id="out-{{ run_id }}">—</div>
+        <div class="bar"><div class="bar-fill" id="bar-{{ run_id }}"></div></div>
       </div>
-      <div class="output" id="out-{{ run_id }}">—</div>
+      {% endfor %}
     </div>
-    {% endfor %}
   </div>
 
   <script>
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        generateAll();
+      }
+    }
+
     async function generateAll() {
-      const prompt = document.getElementById('prompt').value;
-      const tokens = parseInt(document.getElementById('tokens').value);
-      const btn    = document.getElementById('btn');
+      const prompt  = document.getElementById('prompt').value;
+      const tokens  = parseInt(document.getElementById('tokens').value) || 200;
+      const btn     = document.getElementById('btn');
+      const landing = document.getElementById('landing');
+      const results = document.getElementById('results-section');
+
       btn.disabled = true;
-      btn.textContent = 'Generating...';
 
       const run_ids = {{ run_ids | tojson }};
 
-      // set all cards to loading
+      // show results section & shrink header
+      results.classList.add('visible');
+      landing.classList.add('results-shown');
+
+      // set all cards to loading state
       run_ids.forEach(id => {
-        document.getElementById('out-' + id).textContent = 'generating...';
+        const card = document.getElementById('card-' + id);
+        const out  = document.getElementById('out-' + id);
+        const bar  = document.getElementById('bar-' + id);
+        card.className = 'card loading';
+        out.className  = 'output loading-text';
+        out.textContent = 'generating...';
+        bar.style.width = '30%';
       });
 
-      // fire all requests in parallel
+      // scroll to results
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // fire all in parallel
       await Promise.all(run_ids.map(async (run_id) => {
         const res  = await fetch('/generate', {
           method: 'POST',
@@ -319,11 +613,16 @@ HTML = """
           body: JSON.stringify({ run_id, prompt, max_tokens: tokens })
         });
         const data = await res.json();
-        document.getElementById('out-' + run_id).textContent = data.output || data.error;
+        const card = document.getElementById('card-' + run_id);
+        const out  = document.getElementById('out-' + run_id);
+        const bar  = document.getElementById('bar-' + run_id);
+        out.className  = 'output';
+        out.textContent = data.output || ('Error: ' + data.error);
+        card.className  = 'card done';
+        bar.style.width = '100%';
       }));
 
-      btn.disabled    = false;
-      btn.textContent = 'Generate All';
+      btn.disabled = false;
     }
   </script>
 </body>
